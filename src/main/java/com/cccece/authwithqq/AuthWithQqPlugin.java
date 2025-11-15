@@ -1,4 +1,4 @@
-package com.crimsonwarpedcraft.qqbindingguestmode;
+package com.cccece.authwithqq;
 
 import io.papermc.lib.PaperLib;
 import java.util.Collections;
@@ -11,11 +11,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * QQ 绑定游客模式插件的主类。
+ * QQ 绑定游客模式插件的主类.
  */
-public class QQBindingGuestModePlugin extends JavaPlugin {
+public class AuthWithQqPlugin extends JavaPlugin {
 
-  private BindingAPI bindingAPI;
+  private BindingApi bindingApi;
   private String unboundPromptMessage;
   private String unboundRestrictionMessage;
   private String bindSuccessMessage;
@@ -52,7 +52,7 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
   }
 
   /**
-   * 插件启动自检。
+   * 插件启动自检.
    */
   private void selfCheck() {
     String apiUrl = getConfig().getString("backend-api-url");
@@ -76,14 +76,15 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
     // 异步执行 API 连接测试
     if (!defaultUrl) {
       getLogger().info("Starting API connection self-check...");
-      CompletableFuture.supplyAsync(() -> bindingAPI.getApiStatusCode("__TEST__"))
+      CompletableFuture.supplyAsync(() -> bindingApi.getApiStatusCode("__TEST__"))
           .thenAccept(statusCode -> {
             if (statusCode == 200) {
               getLogger().info("API connection successful! Status Code: 200 OK.");
             } else if (statusCode == -1) {
               getLogger().severe("API connection FAILED! Check network connectivity or API URL.");
             } else {
-              getLogger().warning("API connection successful, but returned non-200 status code: " + statusCode);
+              getLogger().warning("API connection successful, but returned non-200 status code: "
+                  + statusCode);
               getLogger().warning("This might indicate a configuration issue or an unhandled API error.");
             }
           });
@@ -91,7 +92,7 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
   }
 
   /**
-   * 重新加载配置数据。
+   * 重新加载配置数据.
    */
   public void reloadConfigData() {
     reloadConfig();
@@ -99,19 +100,22 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
     
     // 假设配置中只存储基础 URL，例如 http://your.backend.com/
     String apiUrl = getConfig().getString("backend-api-url", "http://your.backend.com/");
-    this.bindingAPI = new BindingAPI(this, apiUrl);
+    this.bindingApi = new BindingApi(this, apiUrl);
 
-    this.unboundPromptMessage = getConfig().getString("message-unbound-prompt", "§c欢迎！请加入 QQ 群并发送 /绑定 {CODE} 完成认证，否则无法进行操作。");
-    this.unboundRestrictionMessage = getConfig().getString("message-unbound-restriction", "§c请先完成 QQ 绑定！绑定码: {CODE}");
+    this.unboundPromptMessage = getConfig().getString("message-unbound-prompt",
+        "§c欢迎！请加入 QQ 群并发送 /绑定 {CODE} 完成认证，否则无法进行操作。");
+    this.unboundRestrictionMessage = getConfig().getString("message-unbound-restriction",
+        "§c请先完成 QQ 绑定！绑定码: {CODE}");
     this.bindSuccessMessage = getConfig().getString("message-bind-success", "§a账号绑定成功！您现在可以正常游戏了。");
   }
 
   /**
-   * 获取绑定 API 实例。
-   * @return BindingAPI 实例。
+   * 获取绑定 API 实例.
+   *
+   * @return BindingApi 实例.
    */
-  public BindingAPI getBindingAPI() {
-    return bindingAPI;
+  public BindingApi getBindingApi() {
+    return bindingApi;
   }
 
   public String getUnboundPromptMessage() {
@@ -131,26 +135,27 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
   }
 
   /**
-   * 获取需要轮询的玩家集合。
+   * 获取需要轮询的玩家集合.
    */
   public Set<String> getPlayersToPoll() {
     return playersToPoll;
   }
 
   /**
-   * 启动定时轮询任务。
+   * 启动定时轮询任务.
    */
   private void startPollingTask() {
     long delay = 20L * 5; // 5 秒延迟
     long period = 20L * 10; // 每 10 秒轮询一次
 
     // 确保在 onDisable 时可以取消任务
-    pollingTaskId = Bukkit.getScheduler().runTaskTimer(this, this::pollBindingStatus, delay, period).getTaskId();
+    pollingTaskId = Bukkit.getScheduler().runTaskTimer(this, this::pollBindingStatus, delay, period)
+        .getTaskId();
     getLogger().info("Binding status polling task started (Interval: 10s).");
   }
 
   /**
-   * 执行轮询逻辑。
+   * 执行轮询逻辑.
    */
   private void pollBindingStatus() {
     // 复制集合以避免在迭代时修改
@@ -170,7 +175,7 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
       }
 
       // 异步检查绑定状态
-      bindingAPI.getBindingStatusAsync(playerName)
+      bindingApi.getBindingStatusAsync(playerName)
           .thenAccept(status -> {
             if (status.isBound()) {
               // 绑定成功，在主线程中处理
@@ -181,8 +186,9 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
   }
 
   /**
-   * 处理玩家绑定成功后的逻辑。
-   * @param player 已绑定成功的玩家。
+   * 处理玩家绑定成功后的逻辑.
+   *
+   * @param player 已绑定成功的玩家.
    */
   public void handleBindingSuccess(Player player) {
     String playerName = player.getName();
@@ -196,18 +202,18 @@ public class QQBindingGuestModePlugin extends JavaPlugin {
 
       // 2. 向玩家发送成功的提示消息
       String successMessage = getBindSuccessMessage();
-      BindingAPI.sendPlayerMessage(this, player, successMessage);
+      BindingApi.sendPlayerMessage(this, player, successMessage);
 
       getLogger().info("Player " + playerName + " successfully bound via polling.");
     }
   }
 
   /**
-   * 静态方法获取插件实例，方便其他类调用。
+   * 静态方法获取插件实例，方便其他类调用.
    *
-   * @return 插件实例。
+   * @return 插件实例.
    */
-  public static QQBindingGuestModePlugin getInstance() {
-    return JavaPlugin.getPlugin(QQBindingGuestModePlugin.class);
+  public static AuthWithQqPlugin getInstance() {
+    return JavaPlugin.getPlugin(AuthWithQqPlugin.class);
   }
 }

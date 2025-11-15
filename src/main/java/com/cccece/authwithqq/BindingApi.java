@@ -1,4 +1,4 @@
-package com.crimsonwarpedcraft.qqbindingguestmode;
+package com.cccece.authwithqq;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -9,35 +9,34 @@ import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * 处理与外部 QQ 绑定 API 的通信。
+ * 处理与外部 QQ 绑定 API 的通信.
  */
-public class BindingAPI {
+public class BindingApi {
 
-  private final QQBindingGuestModePlugin plugin;
+  private final AuthWithQqPlugin plugin;
   private final String apiUrl;
 
   /**
-   * 构造函数。
+   * 构造函数.
    *
-   * @param plugin 插件实例。
-   * @param apiUrl 绑定 API URL。
+   * @param plugin 插件实例.
+   * @param apiUrl 绑定 API URL.
    */
-  public BindingAPI(QQBindingGuestModePlugin plugin, String apiUrl) {
+  public BindingApi(AuthWithQqPlugin plugin, String apiUrl) {
     this.plugin = plugin;
     this.apiUrl = apiUrl;
   }
 
   /**
-   * 同步方法：获取 API 响应码。
+   * 同步方法：获取 API 响应码.
    *
-   * @param playerName 用于构建 URL 的玩家名称 (MCID)。
-   * @return HTTP 响应码 (例如 200, 404)，如果发生连接错误则返回 -1。
+   * @param playerName 用于构建 URL 的玩家名称 (MCID).
+   * @return HTTP 响应码 (例如 200, 404)，如果发生连接错误则返回 -1.
    */
   public int getApiStatusCode(String playerName) {
     String urlString = buildBindingStatusUrl(playerName);
@@ -58,17 +57,18 @@ public class BindingAPI {
       return responseCode;
     } catch (Exception e) {
       if (plugin.isDebugMode()) {
-        plugin.getLogger().log(Level.WARNING, "API connection test failed for URL: " + urlString, e);
+        plugin.getLogger().log(Level.WARNING,
+            "API connection test failed for URL: " + urlString, e);
       }
       return -1; // 表示连接失败
     }
   }
 
   /**
-   * 异步检查玩家是否已绑定。
+   * 异步检查玩家是否已绑定.
    *
-   * @param playerName 玩家的名称 (MCID)。
-   * @return CompletableFuture<BindingStatus> 包含绑定状态和绑定码。
+   * @param playerName 玩家的名称 (MCID).
+   * @return CompletableFuture<BindingStatus> 包含绑定状态和绑定码.
    */
   public CompletableFuture<BindingStatus> getBindingStatusAsync(String playerName) {
     CompletableFuture<BindingStatus> future = new CompletableFuture<>();
@@ -77,7 +77,8 @@ public class BindingAPI {
     Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
       String urlString = buildBindingStatusUrl(playerName);
       if (plugin.isDebugMode()) {
-        plugin.getLogger().log(Level.INFO, "Checking binding status for " + playerName + ". URL: " + urlString);
+        plugin.getLogger().log(Level.INFO,
+            "Checking binding status for " + playerName + ". URL: " + urlString);
       }
       try {
         URL url = new URL(urlString);
@@ -105,7 +106,8 @@ public class BindingAPI {
           String bindingCode = null;
 
           // 1. 解析 "bound" 字段
-          Pattern boundPattern = Pattern.compile("\"bound\"\\s*:\\s*(true|false)", Pattern.CASE_INSENSITIVE);
+          Pattern boundPattern = Pattern.compile(
+              "\"bound\"\\s*:\\s*(true|false)", Pattern.CASE_INSENSITIVE);
           Matcher boundMatcher = boundPattern.matcher(responseBody);
 
           if (boundMatcher.find()) {
@@ -117,7 +119,8 @@ public class BindingAPI {
 
           // 2. 解析 "bindingCode" 字段
           // 匹配 "bindingCode" 字段后紧跟的字符串值 (可能为 null 或数字字符串)
-          Pattern codePattern = Pattern.compile("\"bindingCode\"\\s*:\\s*\"?([^\",]*)\"?", Pattern.CASE_INSENSITIVE);
+          Pattern codePattern = Pattern.compile(
+              "\"bindingCode\"\\s*:\\s*\"?([^\",]*)\"?", Pattern.CASE_INSENSITIVE);
           Matcher codeMatcher = codePattern.matcher(responseBody);
 
           if (codeMatcher.find()) {
@@ -128,7 +131,8 @@ public class BindingAPI {
           }
 
           if (plugin.isDebugMode()) {
-            plugin.getLogger().log(Level.INFO, "API response for " + playerName + ": " + responseBody);
+            plugin.getLogger().log(Level.INFO,
+                "API response for " + playerName + ": " + responseBody);
           }
 
           future.complete(new BindingStatus(isBound, bindingCode));
@@ -155,9 +159,10 @@ public class BindingAPI {
   }
 
   /**
-   * 构建查询绑定状态的完整 URL。
-   * @param playerName 玩家名称 (MCID)。
-   * @return 完整的 API URL 字符串。
+   * 构建查询绑定状态的完整 URL.
+   *
+   * @param playerName 玩家名称 (MCID).
+   * @return 完整的 API URL 字符串.
    */
   private String buildBindingStatusUrl(String playerName) {
     // 确保 apiUrl 以斜杠结尾
@@ -167,7 +172,7 @@ public class BindingAPI {
   }
 
   /**
-   * 辅助方法：在主线程中向玩家发送消息。
+   * 辅助方法：在主线程中向玩家发送消息.
    */
   public static void sendPlayerMessage(JavaPlugin plugin, Player player, String message) {
     if (player != null && player.isOnline()) {
@@ -175,12 +180,18 @@ public class BindingAPI {
     }
   }
   /**
-   * 封装 API 响应的绑定状态和绑定码。
+   * 封装 API 响应的绑定状态和绑定码.
    */
   public static class BindingStatus {
     private final boolean isBound;
     private final String bindingCode;
 
+    /**
+     * 构造函数.
+     *
+     * @param isBound 是否已绑定.
+     * @param bindingCode 绑定码.
+     */
     public BindingStatus(boolean isBound, String bindingCode) {
       this.isBound = isBound;
       this.bindingCode = bindingCode;
