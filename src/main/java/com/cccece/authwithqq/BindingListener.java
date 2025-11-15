@@ -93,6 +93,9 @@ public class BindingListener implements Listener {
     }
   }
 
+  /**
+   * 监听 BlockBreakEvent.
+   */
   @EventHandler(priority = EventPriority.HIGH)
   public void onBlockBreak(BlockBreakEvent event) {
     checkRestriction(event.getPlayer(), event);

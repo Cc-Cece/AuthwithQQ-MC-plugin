@@ -43,24 +43,27 @@ public class BindingApi {
     if (plugin.isDebugMode()) {
       plugin.getLogger().log(Level.INFO, "Testing API URL: " + urlString);
     }
+    HttpURLConnection connection = null;
     try {
       URL url = new URL(urlString);
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+      connection = (HttpURLConnection) url.openConnection();
       connection.setRequestMethod("GET");
       connection.setConnectTimeout(5000);
       connection.setReadTimeout(5000);
 
       // 尝试连接并获取响应码
       connection.connect();
-      int responseCode = connection.getResponseCode();
-      connection.disconnect();
-      return responseCode;
+      return connection.getResponseCode();
     } catch (Exception e) {
       if (plugin.isDebugMode()) {
         plugin.getLogger().log(Level.WARNING,
             "API connection test failed for URL: " + urlString, e);
       }
       return -1; // 表示连接失败
+    } finally {
+      if (connection != null) {
+        connection.disconnect();
+      }
     }
   }
 
@@ -90,15 +93,14 @@ public class BindingApi {
         int responseCode = connection.getResponseCode();
 
         if (responseCode == HttpURLConnection.HTTP_OK) {
-          BufferedReader in = new BufferedReader(new InputStreamReader(
-              connection.getInputStream()));
-          String inputLine;
           StringBuilder response = new StringBuilder();
-
-          while ((inputLine = in.readLine()) != null) {
-            response.append(inputLine);
+          try (BufferedReader in = new BufferedReader(new InputStreamReader(
+              connection.getInputStream()))) {
+            String inputLine;
+            while ((inputLine = in.readLine()) != null) {
+              response.append(inputLine);
+            }
           }
-          in.close();
 
           // 解析 JSON 响应，查找 "bound" 和 "bindingCode"
           String responseBody = response.toString();
@@ -182,6 +184,7 @@ public class BindingApi {
   /**
    * 封装 API 响应的绑定状态和绑定码.
    */
+
   public static class BindingStatus {
     private final boolean isBound;
     private final String bindingCode;

@@ -85,7 +85,8 @@ public class AuthWithQqPlugin extends JavaPlugin {
             } else {
               getLogger().warning("API connection successful, but returned non-200 status code: "
                   + statusCode);
-              getLogger().warning("This might indicate a configuration issue or an unhandled API error.");
+              getLogger().warning("This might indicate a configuration issue");
+              getLogger().warning("or an unhandled API error.");
             }
           });
     }
