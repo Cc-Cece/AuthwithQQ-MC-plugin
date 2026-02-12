@@ -3,8 +3,8 @@ package com.cccece.authwithqq;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.logging.Level;
 import java.util.regex.Matcher;
@@ -45,7 +45,8 @@ public class BindingApi {
     }
     HttpURLConnection connection = null;
     try {
-      URL url = new URL(urlString);
+      URI uri = URI.create(urlString);
+      URL url = uri.toURL();
       connection = (HttpURLConnection) url.openConnection();
       connection.setRequestMethod("GET");
       connection.setConnectTimeout(5000);
@@ -84,7 +85,8 @@ public class BindingApi {
             "Checking binding status for " + playerName + ". URL: " + urlString);
       }
       try {
-        URL url = new URL(urlString);
+        URI uri = URI.create(urlString);
+        URL url = uri.toURL();
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestMethod("GET");
         connection.setConnectTimeout(5000);

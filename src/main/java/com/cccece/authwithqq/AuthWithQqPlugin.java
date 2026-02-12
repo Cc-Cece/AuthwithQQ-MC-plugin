@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -22,6 +21,7 @@ public class AuthWithQqPlugin extends JavaPlugin {
   private boolean isDebugMode;
   private Set<String> playersToPoll; // 存储需要轮询的玩家名称 (MCID)
   private int pollingTaskId = -1; // 存储定时任务 ID
+  private BindingListener bindingListener; // 监听器引用，便于回调解除限制
 
   @Override
   public void onEnable() {
@@ -37,7 +37,8 @@ public class AuthWithQqPlugin extends JavaPlugin {
     startPollingTask();
 
     // 注册事件监听器
-    getServer().getPluginManager().registerEvents(new BindingListener(this), this);
+    this.bindingListener = new BindingListener(this);
+    getServer().getPluginManager().registerEvents(bindingListener, this);
 
     // 注册命令
     // 旧的 /qqbindsuccess 命令已弃用，因为绑定状态现在通过轮询检查。
@@ -119,6 +120,10 @@ public class AuthWithQqPlugin extends JavaPlugin {
     return bindingApi;
   }
 
+  public BindingListener getBindingListener() {
+    return bindingListener;
+  }
+
   public String getUnboundPromptMessage() {
     return unboundPromptMessage;
   }
@@ -197,6 +202,9 @@ public class AuthWithQqPlugin extends JavaPlugin {
     // 确保玩家仍在需要轮询的列表中，防止重复处理
     if (playersToPoll.contains(playerName)) {
       playersToPoll.remove(playerName);
+      if (bindingListener != null) {
+        bindingListener.markVerified(player.getUniqueId());
+      }
 
       // 1. 将玩家的 GameMode 设为 Survival 模式
       player.setGameMode(org.bukkit.GameMode.SURVIVAL);
