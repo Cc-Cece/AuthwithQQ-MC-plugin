@@ -1,0 +1,12 @@
+# QQ Binding Guest Mode Plugin Configuration
+
+# External API URL for checking binding status. Append player MCID to this URL.
+backend-api-url: "http://your.backend.com/api/getBindingStatus?mcid="
+
+# Debugging
+debug-mode: false
+
+# Messages
+message-unbound-prompt: "§c欢迎！请加入 QQ 群并发送 /绑定 {CODE} 完成认证，否则无法进行操作。"
+message-unbound-restriction: "§c请先完成 QQ 绑定！"
+message-bind-success: "§a账号绑定成功！您现在可以正常游戏了。"
