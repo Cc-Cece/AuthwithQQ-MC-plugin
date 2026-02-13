@@ -1,52 +1,46 @@
-name: Auto Release (Dev)
+name: Notify on Release
+
+permissions:
+  contents: read
 
 on:
-  push:
-    branches:
-      - dev
-  workflow_dispatch:
+  release:
+    types:
+    - published
 
 jobs:
-  release:
+  notify:
+    name: Send job complete notification
     runs-on: ubuntu-latest
-    # 必须赋予写入权限才能创建 Release
-    permissions:
-      contents: write
-
+    if: vars.DISCORD_RELEASE_WEBHOOK_ID || vars.DISCORD_WEBHOOK_ID
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v5
 
       - name: Common Setup
         uses: ./.github/actions/common-setup
+
+      - name: Retrieve Project Name
+        run: echo "PROJECT_NAME=$(${{github.workspace}}/gradlew -q printProjectName)" >> $GITHUB_ENV
+        id: project_name
+
+      - name: Set pre-release environment
+        if: ${{ github.event.release.prerelease }}
+        run: |
+          echo "RELEASE_TYPE=pre-release" >> $GITHUB_ENV
+
+      - name: Set release environment
+        if: ${{ !github.event.release.prerelease }}
+        run: |
+          echo "RELEASE_TYPE=release" >> $GITHUB_ENV
+
+      - name: Notify
+        uses: appleboy/discord-action@v1.2.0
         with:
-          java-version: '21'
-
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
-      - name: Build with Gradle
-        # 如果你的项目有 shadowJar 任务，建议改为 ./gradlew shadowJar
-        run: ./gradlew build
-
-      - name: Update GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: dev-latest
-          name: "Development Build (Latest)"
-          body: |
-            ## 开发版自动构建
-            本版本由 GitHub Actions 自动生成。
-            - **分支**: `dev`
-            - **提交信息**: ${{ github.event.head_commit.message }}
-            - **构建时间**: ${{ github.event.head_commit.timestamp }}
-            
-            > 注意：此版本仅供测试使用。
-          draft: false
-          prerelease: true
-          # 自动覆盖旧的 tag
-          make_latest: true
-          files: |
-            build/libs/*.jar
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          webhook_id: ${{ !github.event.release.prerelease && vars.DISCORD_RELEASE_WEBHOOK_ID || vars.DISCORD_WEBHOOK_ID }}
+          webhook_token: ${{ !github.event.release.prerelease && secrets.DISCORD_RELEASE_WEBHOOK_TOKEN || secrets.DISCORD_WEBHOOK_TOKEN }}
+          color: "#00FF00"
+          username: "${{ env.PROJECT_NAME }} Release Bot"
+          message: >
+            An ${{ env.PROJECT_NAME }} ${{ env.RELEASE_TYPE }} was deployed by ${{ github.actor }}:
+            https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
