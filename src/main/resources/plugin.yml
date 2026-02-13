@@ -1,10 +1,19 @@
-main: com.cccece.authwithqq.AuthWithQqPlugin
 name: AuthwithQQ
-version: "${VERSION}"
-api-version: "1.16"
-author: cc_cece
-description: Authorize and bind using QQ.
+version: '${version}'
+main: com.cccece.authwithqq.AuthWithQqPlugin
+api-version: '1.20'
+prefix: AuthWithQQ
+authors: [Mizuki]
+description: A plugin that restricts players until they bind their QQ account.
+
+commands:
+  qqskip:
+    description: 豁免指定玩家或假人的QQ绑定要求
+    usage: /qqskip <add|remove> <玩家名|UUID>
+    permission: qqbinding.admin
+    aliases: [qqwhitelist]
+
 permissions:
   qqbinding.admin:
-    description: Allows console to use /qqbindsuccess (Deprecated)
+    description: 允许管理QQ绑定豁免名单
     default: op

@@ -1,173 +1,170 @@
 package com.cccece.authwithqq;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.World;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerPortalEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.event.player.PlayerTeleportEvent;
 
 /**
- * 玩家权限与跨世界访问限制监听器.
+ * 监听玩家行为，拦截未绑定 QQ 的玩家操作.
  */
 public class BindingListener implements Listener {
 
-    private final AuthWithQqPlugin plugin;
-    private final Set<UUID> unverifiedPlayers = new HashSet<>();
-    
-    // 硬编码的大厅配置
-    private final String LOBBY_NAME = "Lobby";
+  private final AuthWithQqPlugin plugin;
+  private final Set<UUID> unverifiedPlayers;
 
-    public BindingListener(AuthWithQqPlugin plugin) {
-        this.plugin = plugin;
+  public BindingListener(AuthWithQqPlugin plugin) {
+    this.plugin = plugin;
+    this.unverifiedPlayers = Collections.synchronizedSet(new HashSet<>());
+  }
+
+  @EventHandler(priority = EventPriority.LOWEST)
+  public void onPlayerJoin(PlayerJoinEvent event) {
+    Player player = event.getPlayer();
+    UUID uuid = player.getUniqueId();
+    String name = player.getName();
+
+    // --- 核心修改：白名单豁免逻辑 ---
+    if (plugin.getWhitelistManager().isWhitelisted(name, uuid)) {
+      if (plugin.isDebugMode()) {
+        plugin.getLogger().info("玩家 " + name + " (UUID: " + uuid + ") 在豁免名单中，跳过验证。");
+      }
+      player.setGameMode(GameMode.SURVIVAL);
+      return; // 豁免玩家直接跳过后续所有逻辑
     }
+    // ----------------------------
 
-    /**
-     * 获取硬编码的大厅出生点坐标.
-     */
-    private Location getLobbySpawn() {
-        World world = Bukkit.getWorld(LOBBY_NAME);
-        if (world == null) return null;
-        // 在此处修改你的具体坐标参数: world, x, y, z, yaw, pitch
-        return new Location(world, -110, 1, 20, 0f, 0f);
+    // 非豁免玩家，先限制为冒险模式并加入验证列表
+    player.setGameMode(GameMode.ADVENTURE);
+    unverifiedPlayers.add(uuid);
+
+    // 异步查询 API 绑定状态
+    plugin.getBindingApi().getBindingStatusAsync(name).thenAccept(status -> {
+      if (status.isBound()) {
+        // 如果已绑定，切换回生存模式并移除限制
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+          plugin.handleBindingSuccess(player);
+        });
+      } else {
+        // 如果未绑定，发送提示并加入轮询队列
+        BindingApi.sendPlayerMessage(plugin, player, plugin.getUnboundPromptMessage());
+        plugin.getPlayersToPoll().add(name);
+      }
+    }).exceptionally(ex -> {
+      plugin.getLogger().severe("查询玩家 " + name + " 绑定状态时出错: " + ex.getMessage());
+      return null;
+    });
+  }
+
+  @EventHandler
+  public void onPlayerQuit(PlayerQuitEvent event) {
+    UUID uuid = event.getPlayer().getUniqueId();
+    unverifiedPlayers.remove(uuid);
+    plugin.getPlayersToPoll().remove(event.getPlayer().getName());
+  }
+
+  public void markVerified(UUID uuid) {
+    unverifiedPlayers.remove(uuid);
+  }
+
+  // --- 拦截逻辑 ---
+
+  private boolean isUnverified(Player player) {
+    return unverifiedPlayers.contains(player.getUniqueId());
+  }
+
+  @EventHandler
+  public void onMove(PlayerMoveEvent event) {
+    if (isUnverified(event.getPlayer())) {
+      // 允许转头，但不允许移动坐标
+      if (event.getFrom().getX() != event.getTo().getX() 
+          || event.getFrom().getZ() != event.getTo().getZ()) {
+        event.setTo(event.getFrom());
+        BindingApi.sendPlayerMessage(plugin, event.getPlayer(), plugin.getUnboundRestrictionMessage());
+      }
     }
+  }
 
-    public Set<UUID> getUnverifiedPlayers() {
-        return unverifiedPlayers;
+  @EventHandler
+  public void onInteract(PlayerInteractEvent event) {
+    if (isUnverified(event.getPlayer())) {
+      event.setCancelled(true);
     }
+  }
 
-    /**
-     * 在绑定成功后解除未验证状态.
-     */
-    public void markVerified(UUID uuid) {
-        unverifiedPlayers.remove(uuid);
+  @EventHandler
+  public void onBreak(BlockBreakEvent event) {
+    if (isUnverified(event.getPlayer())) {
+      event.setCancelled(true);
     }
+  }
 
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
-
-        unverifiedPlayers.add(uuid);
-
-        plugin.getBindingApi().getBindingStatusAsync(player.getName())
-            .thenAccept(status -> {
-                plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    if (status.isBound()) {
-                        unverifiedPlayers.remove(uuid);
-                        if (player.getGameMode() != GameMode.SURVIVAL) {
-                            player.setGameMode(GameMode.SURVIVAL);
-                        }
-                    } else {
-                        if (player.getGameMode() != GameMode.ADVENTURE) {
-                            player.setGameMode(GameMode.ADVENTURE);
-                        }
-                        // 初始检查：如果玩家上线时不在大厅，直接拉回
-                        if (!player.getWorld().getName().equalsIgnoreCase(LOBBY_NAME)) {
-                            Location spawn = getLobbySpawn();
-                            if (spawn != null) player.teleport(spawn);
-                        }
-                        
-                        String prompt = plugin.getUnboundPromptMessage();
-                        if (status.getBindingCode() != null) {
-                            prompt = prompt.replace("{CODE}", status.getBindingCode());
-                        }
-                        BindingApi.sendPlayerMessage(plugin, player, prompt);
-                        plugin.getPlayersToPoll().add(player.getName());
-                    }
-                });
-            });
+  @EventHandler
+  public void onPlace(BlockPlaceEvent event) {
+    if (isUnverified(event.getPlayer())) {
+      event.setCancelled(true);
     }
+  }
 
-    @EventHandler
-    public void onPlayerQuit(PlayerQuitEvent event) {
-        unverifiedPlayers.remove(event.getPlayer().getUniqueId());
+  @EventHandler
+  public void onChat(AsyncPlayerChatEvent event) {
+    if (isUnverified(event.getPlayer())) {
+      event.setCancelled(true);
+      BindingApi.sendPlayerMessage(plugin, event.getPlayer(), plugin.getUnboundRestrictionMessage());
     }
+  }
 
-    /**
-     * 拦截跨世界传送 (含指令、插件、传送门)
-     */
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onTeleport(PlayerTeleportEvent event) {
-        handleWorldTransfer(event);
+  @EventHandler
+  public void onCommand(PlayerCommandPreprocessEvent event) {
+    if (isUnverified(event.getPlayer())) {
+      String cmd = event.getMessage().toLowerCase();
+      // 允许基本的登录/注册命令
+      if (cmd.startsWith("/login") || cmd.startsWith("/register") || cmd.startsWith("/l ")) {
+        return;
+      }
+      event.setCancelled(true);
+      BindingApi.sendPlayerMessage(plugin, event.getPlayer(), plugin.getUnboundRestrictionMessage());
     }
+  }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onPortal(PlayerPortalEvent event) {
-        handleWorldTransfer(event);
+  @EventHandler
+  public void onDrop(PlayerDropItemEvent event) {
+    if (isUnverified(event.getPlayer())) {
+      event.setCancelled(true);
     }
+  }
 
-    private void handleWorldTransfer(PlayerTeleportEvent event) {
-        Player player = event.getPlayer();
-        if (!unverifiedPlayers.contains(player.getUniqueId())) return;
-
-        // 获取目标世界
-        World toWorld = event.getTo() != null ? event.getTo().getWorld() : null;
-        if (toWorld == null) return;
-
-        // 如果试图离开大厅
-        if (!toWorld.getName().equalsIgnoreCase(LOBBY_NAME)) {
-            event.setCancelled(true);
-            
-            // 将玩家坐标修正回大厅硬编码坐标
-            Location lobbySpawn = getLobbySpawn();
-            if (lobbySpawn != null) {
-                // 如果当前玩家已经在大厅外，强制拉回；如果在内，仅取消传送
-                if (!player.getWorld().getName().equalsIgnoreCase(LOBBY_NAME)) {
-                    player.teleport(lobbySpawn);
-                }
-            }
-            
-            player.sendMessage("§e[!] 你必须先完成绑定才能离开大厅世界！按T在消息记录中查看你的绑定码。");
-        }
+  @EventHandler
+  public void onPickup(EntityPickupItemEvent event) {
+    if (event.getEntity() instanceof Player) {
+      if (isUnverified((Player) event.getEntity())) {
+        event.setCancelled(true);
+      }
     }
+  }
 
-    private void checkRestriction(Player player, Cancellable event) {
-        if (unverifiedPlayers.contains(player.getUniqueId())) {
-            event.setCancelled(true);
-            BindingApi.sendPlayerMessage(plugin, player, "§e[!] 请先完成 QQ 绑定后再进行此操作！按T在消息记录中查看你的绑定码。");
-        }
+  @EventHandler
+  public void onDamage(EntityDamageByEntityEvent event) {
+    if (event.getDamager() instanceof Player) {
+      if (isUnverified((Player) event.getDamager())) {
+        event.setCancelled(true);
+      }
     }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onBlockBreak(BlockBreakEvent event) {
-        checkRestriction(event.getPlayer(), event);
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onBlockPlace(BlockPlaceEvent event) {
-        checkRestriction(event.getPlayer(), event);
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onPlayerDropItem(PlayerDropItemEvent event) {
-        checkRestriction(event.getPlayer(), event);
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onEntityPickupItem(EntityPickupItemEvent event) {
-        if (event.getEntity() instanceof Player) {
-            checkRestriction((Player) event.getEntity(), event);
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
-    public void onPlayerInteract(PlayerInteractEvent event) {
-        checkRestriction(event.getPlayer(), event);
-    }
+  }
 }
