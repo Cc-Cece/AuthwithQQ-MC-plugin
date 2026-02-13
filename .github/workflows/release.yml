@@ -1,46 +1,58 @@
-name: Notify on Release
-
-permissions:
-  contents: read
+name: Auto Release (Dev)
 
 on:
-  release:
-    types:
-    - published
+  push:
+    branches:
+      - dev  # 监听 dev 分支的推送
+  workflow_dispatch: # 允许在 GitHub Actions 页面手动触发
 
 jobs:
-  notify:
-    name: Send job complete notification
+  release:
+    name: Build and Release to Dev-Latest
     runs-on: ubuntu-latest
-    if: vars.DISCORD_RELEASE_WEBHOOK_ID || vars.DISCORD_WEBHOOK_ID
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
+    # 授予创建和修改 Release 的权限
+    permissions:
+      contents: write
 
+    steps:
+      # 1. 检出代码
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. 使用项目现有的基础环境配置 (JDK 21 + Gradle 缓存)
+      # 引用自项目已有的 composite action
       - name: Common Setup
         uses: ./.github/actions/common-setup
-
-      - name: Retrieve Project Name
-        run: echo "PROJECT_NAME=$(${{github.workspace}}/gradlew -q printProjectName)" >> $GITHUB_ENV
-        id: project_name
-
-      - name: Set pre-release environment
-        if: ${{ github.event.release.prerelease }}
-        run: |
-          echo "RELEASE_TYPE=pre-release" >> $GITHUB_ENV
-
-      - name: Set release environment
-        if: ${{ !github.event.release.prerelease }}
-        run: |
-          echo "RELEASE_TYPE=release" >> $GITHUB_ENV
-
-      - name: Notify
-        uses: appleboy/discord-action@v1.2.0
         with:
-          webhook_id: ${{ !github.event.release.prerelease && vars.DISCORD_RELEASE_WEBHOOK_ID || vars.DISCORD_WEBHOOK_ID }}
-          webhook_token: ${{ !github.event.release.prerelease && secrets.DISCORD_RELEASE_WEBHOOK_TOKEN || secrets.DISCORD_WEBHOOK_TOKEN }}
-          color: "#00FF00"
-          username: "${{ env.PROJECT_NAME }} Release Bot"
-          message: >
-            An ${{ env.PROJECT_NAME }} ${{ env.RELEASE_TYPE }} was deployed by ${{ github.actor }}:
-            https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+          java-version: '21'
+
+      # 3. 授予 gradlew 执行权限
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 4. 执行构建任务
+      # 建议确认 build.gradle 是否有 shadowJar 任务，如果有可改为 ./gradlew shadowJar
+      - name: Build with Gradle
+        run: ./gradlew build
+
+      # 5. 自动创建或更新 GitHub Release
+      - name: Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: dev-latest
+          name: "Development Build (Latest)"
+          body: |
+            ## 自动构建说明
+            这是来自 `dev` 分支的最新开发版本。
+            - **最后提交信息**: ${{ github.event.head_commit.message }}
+            - **构建触发者**: ${{ github.actor }}
+            - **构建时间**: ${{ github.event.head_commit.timestamp }}
+            
+            > 注意：此版本由系统自动生成，仅供开发测试使用。
+          draft: false
+          prerelease: true # 标记为预发布
+          make_latest: true
+          # 将编译生成的 JAR 文件上传
+          files: build/libs/*.jar
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

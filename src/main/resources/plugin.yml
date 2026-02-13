@@ -1,5 +1,5 @@
 name: AuthwithQQ
-version: '${version}'
+version: '${VERSION}'
 main: com.cccece.authwithqq.AuthWithQqPlugin
 api-version: '1.20'
 prefix: AuthWithQQ
