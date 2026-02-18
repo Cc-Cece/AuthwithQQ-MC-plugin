@@ -1,5 +1,6 @@
 package com.cccece.authwithqq;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.papermc.lib.PaperLib;
 import java.util.Collections;
 import java.util.HashSet;
@@ -23,18 +24,18 @@ public class AuthWithQqPlugin extends JavaPlugin {
   private String unboundPromptMessage;
   private String unboundRestrictionMessage;
   private String bindSuccessMessage;
-  private boolean isDebugMode;
+  private volatile boolean isDebugMode;
   private final Set<String> playersToPoll = Collections.synchronizedSet(new HashSet<>());
   private volatile int pollingTaskId = -1; // 存储定时任务 ID
   private BindingListener bindingListener; // 监听器引用
   private WhitelistManager whitelistManager; // 白名单管理器
 
   // 行为限制配置
-  private boolean restrictMovement;
-  private boolean restrictWorldChange;
-  private boolean restrictInteraction;
-  private boolean restrictBlockBreak;
-  private boolean restrictBlockPlace;
+  private volatile boolean restrictMovement;
+  private volatile boolean restrictWorldChange;
+  private volatile boolean restrictInteraction;
+  private volatile boolean restrictBlockBreak;
+  private volatile boolean restrictBlockPlace;
 
   @Override
   public void onEnable() {
@@ -168,21 +169,60 @@ public class AuthWithQqPlugin extends JavaPlugin {
     }
   }
 
-  public BindingApi getBindingApi() { return bindingApi; }
-  public BindingListener getBindingListener() { return bindingListener; }
-  public WhitelistManager getWhitelistManager() { return whitelistManager; }
-  public String getUnboundPromptMessage() { return unboundPromptMessage; }
-  public String getUnboundRestrictionMessage() { return unboundRestrictionMessage; }
-  public String getBindSuccessMessage() { return bindSuccessMessage; }
-  public boolean isDebugMode() { return isDebugMode; }
-  public Set<String> getPlayersToPoll() { return playersToPoll; }
+  public BindingApi getBindingApi() {
+    return bindingApi;
+  }
+
+  public BindingListener getBindingListener() {
+    return bindingListener;
+  }
+
+  @SuppressFBWarnings("EI_EXPOSE_REP")
+  public WhitelistManager getWhitelistManager() {
+    return whitelistManager;
+  }
+
+  public String getUnboundPromptMessage() {
+    return unboundPromptMessage;
+  }
+
+  public String getUnboundRestrictionMessage() {
+    return unboundRestrictionMessage;
+  }
+
+  public String getBindSuccessMessage() {
+    return bindSuccessMessage;
+  }
+
+  public boolean isDebugMode() {
+    return isDebugMode;
+  }
+
+  @SuppressFBWarnings("EI_EXPOSE_REP")
+  public Set<String> getPlayersToPoll() {
+    return playersToPoll;
+  }
 
   // 配置 Getter
-  public boolean isRestrictMovement() { return restrictMovement; }
-  public boolean isRestrictWorldChange() { return restrictWorldChange; }
-  public boolean isRestrictInteraction() { return restrictInteraction; }
-  public boolean isRestrictBlockBreak() { return restrictBlockBreak; }
-  public boolean isRestrictBlockPlace() { return restrictBlockPlace; }
+  public boolean isRestrictMovement() {
+    return restrictMovement;
+  }
+
+  public boolean isRestrictWorldChange() {
+    return restrictWorldChange;
+  }
+
+  public boolean isRestrictInteraction() {
+    return restrictInteraction;
+  }
+
+  public boolean isRestrictBlockBreak() {
+    return restrictBlockBreak;
+  }
+
+  public boolean isRestrictBlockPlace() {
+    return restrictBlockPlace;
+  }
 
   private void startPollingTask() {
     long delay = 20L * 5;

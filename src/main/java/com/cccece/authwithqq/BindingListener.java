@@ -1,5 +1,6 @@
 package com.cccece.authwithqq;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -36,6 +37,7 @@ public class BindingListener implements Listener {
    *
    * @param plugin 插件实例
    */
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public BindingListener(AuthWithQqPlugin plugin) {
     this.plugin = plugin;
     this.unverifiedPlayers = Collections.synchronizedSet(new HashSet<>());

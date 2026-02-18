@@ -1,6 +1,8 @@
 package com.cccece.authwithqq;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -33,6 +35,7 @@ public class BindingApi {
    * @param plugin 插件实例.
    * @param apiUrl 绑定 API URL.
    */
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public BindingApi(AuthWithQqPlugin plugin, String apiUrl) {
     this.plugin = plugin;
     this.apiUrl = apiUrl;
@@ -44,11 +47,9 @@ public class BindingApi {
    * @param playerName 用于构建 URL 的玩家名称 (MCID).
    * @return HTTP 响应码 (例如 200, 404)，如果发生连接错误则返回 -1.
    */
+  @SuppressFBWarnings("URLCONNECTION_SSRF_FD")
   public int getApiStatusCode(String playerName) {
     String urlString = buildBindingStatusUrl(playerName);
-    if (plugin.isDebugMode()) {
-      plugin.getLogger().log(Level.INFO, "Testing API URL: {0}", urlString);
-    }
     HttpURLConnection connection = null;
     try {
       URI uri = URI.create(urlString);
@@ -61,10 +62,10 @@ public class BindingApi {
       // 尝试连接并获取响应码
       connection.connect();
       return connection.getResponseCode();
-    } catch (Exception e) {
+    } catch (IOException e) {
       if (plugin.isDebugMode()) {
         plugin.getLogger().log(Level.WARNING,
-            "API connection test failed for URL: " + urlString, e);
+            "API connection test failed for URL: " + urlString.replaceAll("[\r\n]", ""), e);
       }
       return -1; // 表示连接失败
     } finally {
@@ -98,78 +99,77 @@ public class BindingApi {
     CompletableFuture<BindingStatus> future = new CompletableFuture<>();
 
     // 必须在异步线程中执行网络请求
-    Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-      String urlString = buildBindingStatusUrl(playerName);
-      if (plugin.isDebugMode()) {
-        plugin.getLogger().log(Level.INFO,
-            "Checking binding status for {0}. URL: {1}", new Object[]{playerName, urlString});
-      }
-      HttpURLConnection connection = null;
-      try {
-        URI uri = URI.create(urlString);
-        URL url = uri.toURL();
-        connection = (HttpURLConnection) url.openConnection();
-        connection.setRequestMethod("GET");
-        connection.setConnectTimeout(5000);
-        connection.setReadTimeout(5000);
+    Bukkit.getScheduler().runTaskAsynchronously(plugin, new Runnable() {
+      @Override
+      @SuppressFBWarnings({"URLCONNECTION_SSRF_FD", "CRLF_INJECTION_LOGS"})
+      public void run() {
+        String urlString = buildBindingStatusUrl(playerName);
+        HttpURLConnection connection = null;
+        try {
+          URI uri = URI.create(urlString);
+          URL url = uri.toURL();
+          connection = (HttpURLConnection) url.openConnection();
+          connection.setRequestMethod("GET");
+          connection.setConnectTimeout(5000);
+          connection.setReadTimeout(5000);
 
-        int responseCode = connection.getResponseCode();
+          int responseCode = connection.getResponseCode();
 
-        if (responseCode == HttpURLConnection.HTTP_OK) {
-          StringBuilder response = new StringBuilder();
-          try (BufferedReader in = new BufferedReader(new InputStreamReader(
-              connection.getInputStream(), StandardCharsets.UTF_8))) {
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-              response.append(inputLine);
+          if (responseCode == HttpURLConnection.HTTP_OK) {
+            StringBuilder response = new StringBuilder();
+            try (BufferedReader in = new BufferedReader(new InputStreamReader(
+                connection.getInputStream(), StandardCharsets.UTF_8))) {
+              String inputLine;
+              while ((inputLine = in.readLine()) != null) {
+                response.append(inputLine);
+              }
             }
-          }
 
-          // 解析 JSON 响应，查找 "bound" 和 "bindingCode"
-          String responseBody = response.toString();
-          boolean isBound = false;
-          String bindingCode = null;
+            // 解析 JSON 响应，查找 "bound" 和 "bindingCode"
+            String responseBody = response.toString();
+            boolean isBound = false;
+            String bindingCode = null;
 
-          // 1. 解析 "bound" 字段
-          Matcher boundMatcher = BOUND_PATTERN.matcher(responseBody);
+            // 1. 解析 "bound" 字段
+            Matcher boundMatcher = BOUND_PATTERN.matcher(responseBody);
 
-          if (boundMatcher.find()) {
-            isBound = boundMatcher.group(1).equalsIgnoreCase("true");
+            if (boundMatcher.find()) {
+              isBound = boundMatcher.group(1).equalsIgnoreCase("true");
+            } else {
+              plugin.getLogger().log(Level.WARNING,
+                  "Failed to parse 'bound' field for {0}.", playerName);
+            }
+
+            // 2. 解析 "bindingCode" 字段
+            Matcher codeMatcher = CODE_PATTERN.matcher(responseBody);
+
+            if (codeMatcher.find()) {
+              bindingCode = codeMatcher.group(1);
+              if (bindingCode != null && bindingCode.equalsIgnoreCase("null")) {
+                bindingCode = null;
+              }
+            }
+
+            if (plugin.isDebugMode()) {
+              plugin.getLogger().log(Level.INFO,
+                  "API response for {0} received.", playerName);
+            }
+
+            future.complete(new BindingStatus(isBound, bindingCode));
           } else {
             plugin.getLogger().log(Level.WARNING,
-                "Failed to parse 'bound' field for {0}. Response: {1}",
-                new Object[]{playerName, responseBody});
+                "API request failed for player {0}. Response code: {1}",
+                new Object[]{playerName, responseCode});
+            future.complete(new BindingStatus(false, null));
           }
-
-          // 2. 解析 "bindingCode" 字段
-          Matcher codeMatcher = CODE_PATTERN.matcher(responseBody);
-
-          if (codeMatcher.find()) {
-            bindingCode = codeMatcher.group(1);
-            if (bindingCode.equalsIgnoreCase("null")) {
-              bindingCode = null;
-            }
-          }
-
-          if (plugin.isDebugMode()) {
-            plugin.getLogger().log(Level.INFO,
-                "API response for {0}: {1}", new Object[]{playerName, responseBody});
-          }
-
-          future.complete(new BindingStatus(isBound, bindingCode));
-        } else {
-          plugin.getLogger().log(Level.WARNING,
-              "API request failed for player {0}. Response code: {1}",
-              new Object[]{playerName, responseCode});
+        } catch (IOException | RuntimeException e) {
+          plugin.getLogger().log(Level.SEVERE,
+              "Error checking binding status for player " + playerName, e);
           future.complete(new BindingStatus(false, null));
-        }
-      } catch (Exception e) {
-        plugin.getLogger().log(Level.SEVERE,
-            "Error checking binding status for player " + playerName, e);
-        future.complete(new BindingStatus(false, null));
-      } finally {
-        if (connection != null) {
-          connection.disconnect();
+        } finally {
+          if (connection != null) {
+            connection.disconnect();
+          }
         }
       }
     });

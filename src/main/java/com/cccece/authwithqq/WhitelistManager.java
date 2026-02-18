@@ -1,5 +1,6 @@
 package com.cccece.authwithqq;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ public class WhitelistManager {
    *
    * @param plugin 插件实例
    */
+  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public WhitelistManager(AuthWithQqPlugin plugin) {
     this.plugin = plugin;
     this.file = new File(plugin.getDataFolder(), "whitelist.yml");
