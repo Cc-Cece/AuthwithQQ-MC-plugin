@@ -1,12 +1,36 @@
-# QQ Binding Guest Mode Plugin Configuration
+# AuthWithQQ - 插件配置文件
 
-# External API URL for checking binding status. Append player MCID to this URL.
-backend-api-url: "http://your.backend.com/api/getBindingStatus?mcid="
+# 外部 API 的基础地址 (必须以 http:// 或 https:// 开头)
+# 插件会自动拼接路径：{url}/api/getBindingStatus?mcid={playerName}
+backend-api-url: "http://your.api.com/"
 
-# Debugging
+# 调试模式：开启后将在控制台打印详细的 API 请求与响应信息
 debug-mode: false
 
-# Messages
-message-unbound-prompt: "§c欢迎！请加入 QQ 群并发送 /绑定 {CODE} 完成认证，否则无法进行操作。"
+# --- 限制行为配置 ---
+
+# 是否禁止未绑定玩家移动（如果设为 false，玩家可以自由走动游览）
+restrict-movement: true
+
+# 是否禁止未绑定玩家切换世界（防止通过传送门等离开初始世界）
+restrict-world-change: true
+
+# 是否禁止未绑定玩家交互（右键方块、实体、箱子等）
+restrict-interaction: true
+
+# 是否禁止未绑定玩家破坏方块
+restrict-block-break: true
+
+# 是否禁止未绑定玩家放置方块
+restrict-block-place: true
+
+# --- 消息配置 ---
+
+# 玩家加入时，若未绑定收到的提示
+message-unbound-prompt: "§c欢迎！请先完成 QQ 绑定以获得权限。"
+
+# 玩家尝试进行受限操作（如移动、交互）时的警告消息
 message-unbound-restriction: "§c请先完成 QQ 绑定！"
-message-bind-success: "§a账号绑定成功！您现在可以正常游戏了。"
+
+# 绑定成功后的提示
+message-bind-success: "§a账号绑定成功！"

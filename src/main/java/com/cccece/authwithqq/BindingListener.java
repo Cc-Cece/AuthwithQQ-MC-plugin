@@ -14,12 +14,14 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerChangedWorldEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.player.PlayerTeleportEvent;
 
 /**
  * 监听玩家行为，拦截未绑定 QQ 的玩家操作.
@@ -116,7 +118,7 @@ public class BindingListener implements Listener {
    */
   @EventHandler
   public void onMove(PlayerMoveEvent event) {
-    if (isUnverified(event.getPlayer())) {
+    if (plugin.isRestrictMovement() && isUnverified(event.getPlayer())) {
       // 允许转头，但不允许移动坐标
       if (event.getFrom().getX() != event.getTo().getX()
           || event.getFrom().getZ() != event.getTo().getZ()) {
@@ -128,13 +130,40 @@ public class BindingListener implements Listener {
   }
 
   /**
+   * 拦截未验证玩家的世界切换（传送）.
+   *
+   * @param event 传送事件
+   */
+  @EventHandler
+  public void onTeleport(PlayerTeleportEvent event) {
+    if (plugin.isRestrictWorldChange() && isUnverified(event.getPlayer())) {
+      if (event.getFrom().getWorld() != event.getTo().getWorld()) {
+        event.setCancelled(true);
+        BindingApi.sendPlayerMessage(plugin, event.getPlayer(),
+            plugin.getUnboundRestrictionMessage());
+      }
+    }
+  }
+
+  /**
+   * 拦截未验证玩家的世界切换（通过门户）.
+   *
+   * @param event 世界切换事件
+   */
+  @EventHandler
+  public void onWorldChange(PlayerChangedWorldEvent event) {
+    // 这个事件无法被取消，但可以把玩家传回原处
+    // 但通常 PlayerTeleportEvent 会先拦截跨世界传送
+  }
+
+  /**
    * 拦截未验证玩家的交互.
    *
    * @param event 交互事件
    */
   @EventHandler
   public void onInteract(PlayerInteractEvent event) {
-    if (isUnverified(event.getPlayer())) {
+    if (plugin.isRestrictInteraction() && isUnverified(event.getPlayer())) {
       event.setCancelled(true);
     }
   }
@@ -146,7 +175,7 @@ public class BindingListener implements Listener {
    */
   @EventHandler
   public void onBreak(BlockBreakEvent event) {
-    if (isUnverified(event.getPlayer())) {
+    if (plugin.isRestrictBlockBreak() && isUnverified(event.getPlayer())) {
       event.setCancelled(true);
     }
   }
@@ -158,7 +187,7 @@ public class BindingListener implements Listener {
    */
   @EventHandler
   public void onPlace(BlockPlaceEvent event) {
-    if (isUnverified(event.getPlayer())) {
+    if (plugin.isRestrictBlockPlace() && isUnverified(event.getPlayer())) {
       event.setCancelled(true);
     }
   }

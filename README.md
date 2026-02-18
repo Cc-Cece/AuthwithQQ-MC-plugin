@@ -1,86 +1,83 @@
-# QQBindingGuestMode - QQ 绑定游客模式插件 (Paper 1.16+)
+# AuthWithQQ - QQ 绑定游客模式插件
 
-这是一个用于 Paper/Spigot 服务器的插件，旨在强制未完成 QQ 绑定的玩家进入游客模式（Adventure Mode），直到他们完成外部认证。
+AuthWithQQ 是一款为 Paper/Spigot 服务器设计的安全增强插件。它要求玩家必须完成外部 QQ 绑定才能获得完整的游戏权限，否则将被限制在冒险模式中。
 
-## 🚀 功能特性
+---
 
-*   **强制游客模式**: 玩家首次加入服务器时，如果未绑定，将被强制设置为 `Adventure` 模式。
-*   **操作限制**: 限制未绑定玩家进行破坏、放置、拾取、丢弃物品以及与方块/实体交互等操作。
-*   **异步通信**: 所有与外部绑定 API 的网络通信都在异步线程中执行，确保服务器主线程不被阻塞。
-*   **控制台通知**: 提供控制台命令，用于在外部绑定成功后通知服务器更新玩家状态。
+## 🛠️ 核心功能
 
-## ⚙️ 配置 (`config.yml`)
+*   **验证状态管理**: 玩家加入时自动查询绑定状态。未绑定玩家强制设为 `冒险模式`。
+*   **高度可配置的行为拦截**:
+    *   **移动限制**: 可配置是否允许原地转头或自由移动游览。
+    *   **世界/传送限制**: 可配置是否禁止跨世界切换或离开初始世界。
+    *   **世界交互**: 可配置是否禁止破坏方块、放置方块、与方块/实体交互。
+    *   **经济/物品**: 禁止丢弃物品、捡起物品、对实体造成伤害。
+    *   **社交/指令**: 禁止发送聊天消息；拦截除 `/login`, `/register`, `/l` 以外的所有指令。
+*   **白名单(豁免)系统**: 支持通过 `/qqskip` 将特定玩家或 UUID 加入豁免名单，跳过所有验证逻辑。
+*   **后台自动轮询**: 每 10 秒自动轮询一次未验证玩家的状态，绑定成功后即时解除限制。
 
-插件的配置文件位于 `plugins/QQBindingGuestMode/config.yml`。
+---
 
-| 配置项 | 默认值 | 描述 |
-| :--- | :--- | :--- |
-| `backend-api-url` | `"http://your.backend.com/api/getBindingStatus?mcid="` | 外部绑定 API 的 URL。插件将玩家 MCID 附加到此 URL 后进行查询。 |
-| `message-unbound-prompt` | `"§c欢迎！请加入 QQ 群并发送 /绑定 [数字] 完成认证，否则无法进行操作。"` | 玩家加入时，如果未绑定，收到的提示消息。 |
-| `message-unbound-restriction` | `"§c请先完成 QQ 绑定！"` | 玩家尝试进行受限操作时收到的提示消息。 |
-| `message-bind-success` | `"§a账号绑定成功！您现在可以正常游戏了。"` | 通过 `/qqbindsuccess` 命令更新状态后，玩家收到的成功消息。 |
+## ⚙️ 配置文件 (`config.yml`)
 
-## 🕹️ 命令
+```yaml
+# 外部 API 的基础地址
+backend-api-url: "http://your.api.com/"
 
-| 命令 | 权限 | 描述 |
-| :--- | :--- | :--- |
-| `/qqbindsuccess <MCID>` | `qqbinding.admin` (默认 OP) | **仅限控制台执行。** 用于在外部绑定成功后，强制将指定在线玩家的模式设置为 `Survival`。 |
+# 调试模式
+debug-mode: false
 
-## 🛠️ 依赖
+# --- 限制行为配置 ---
 
-本插件需要一个外部 RESTful API 服务来查询绑定状态，例如本项目的配套后端服务。请确保 `backend-api-url` 配置正确指向您的后端服务。
+# 是否禁止未绑定玩家移动（设为 false 则玩家可以自由走动游览）
+restrict-movement: true
 
-### API 接口要求
+# 是否禁止未绑定玩家切换世界（防止通过传送门等离开当前世界）
+restrict-world-change: true
 
-插件调用以下 GET 接口：
+# 是否禁止未绑定玩家交互（右键方块、实体、箱子等）
+restrict-interaction: true
 
-`GET {backend-api-url}<MCID>`
+# 是否禁止未绑定玩家破坏方块
+restrict-block-break: true
 
-**预期响应示例 (JSON):**
+# 是否禁止未绑定玩家放置方块
+restrict-block-place: true
 
+# --- 消息配置 ---
+message-unbound-prompt: "§c欢迎！请先完成 QQ 绑定以获得权限。"
+message-unbound-restriction: "§c请先完成 QQ 绑定！"
+message-bind-success: "§a账号绑定成功！"
+```
+
+---
+
+## 🕹️ 指令与权限
+
+| 指令 | 别名 | 描述 | 权限 |
+| :--- | :--- | :--- | :--- |
+| `/qqskip add <玩家名\|UUID>` | `/qqwhitelist` | 豁免指定玩家的绑定要求 | `qqbinding.admin` |
+| `/qqskip remove <玩家名\|UUID>` | `/qqwhitelist` | 移除玩家的豁免权限 | `qqbinding.admin` |
+
+---
+
+## 🌐 API 规范与示例
+
+插件验证玩家时发起 **GET** 请求：
+`{backend-api-url}/api/getBindingStatus?mcid={playerName}`
+
+**预期响应 (JSON)：**
 ```json
 {
-  "isBound": true,  // 或 false
-  "bindingCode": null,
-  "expiresAt": null
-}
-
-## 🧪 测试与模拟
-
-### 1. 模拟绑定状态查询
-
-为了测试插件的 `PlayerJoinEvent` 逻辑，您需要确保后端 API 返回正确的 JSON 响应。
-
-**模拟未绑定状态 (玩家进入时应被设置为 Adventure 模式):**
-
-```json
-{
-  "isBound": false,
-  "bindingCode": "123456",
-  "expiresAt": "2025-11-14 21:35:00"
+  "bound": true,
+  "bindingCode": "12345"
 }
 ```
 
-**模拟已绑定状态 (玩家进入时应被设置为 Survival 模式):**
+---
 
-```json
-{
-  "isBound": true,
-  "bindingCode": null,
-  "expiresAt": null
-}
-```
-
-### 2. 模拟绑定成功通知
-
-当玩家在外部系统（如 QQ 机器人）完成绑定后，后端服务应向服务器发送通知，触发 `/qqbindsuccess` 命令。
-
-**在服务器控制台手动测试命令：**
-
-假设玩家 `TestPlayer` 在线，执行以下命令：
-
+## 🚀 开发者说明
+本项目使用 Gradle 编译，支持 Java 21。
 ```bash
-qqbindsuccess TestPlayer
+./gradlew build
 ```
-
-执行后，`TestPlayer` 的游戏模式应立即切换为 `Survival`，并收到配置的成功消息。

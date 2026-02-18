@@ -29,6 +29,13 @@ public class AuthWithQqPlugin extends JavaPlugin {
   private BindingListener bindingListener; // 监听器引用
   private WhitelistManager whitelistManager; // 白名单管理器
 
+  // 行为限制配置
+  private boolean restrictMovement;
+  private boolean restrictWorldChange;
+  private boolean restrictInteraction;
+  private boolean restrictBlockBreak;
+  private boolean restrictBlockPlace;
+
   @Override
   public void onEnable() {
     PaperLib.suggestPaper(this);
@@ -104,6 +111,13 @@ public class AuthWithQqPlugin extends JavaPlugin {
         "message-unbound-restriction", "§c请先完成 QQ 绑定！");
     this.bindSuccessMessage = getConfig().getString("message-bind-success", "§a账号绑定成功！");
 
+    // 加载行为限制配置
+    this.restrictMovement = getConfig().getBoolean("restrict-movement", true);
+    this.restrictWorldChange = getConfig().getBoolean("restrict-world-change", true);
+    this.restrictInteraction = getConfig().getBoolean("restrict-interaction", true);
+    this.restrictBlockBreak = getConfig().getBoolean("restrict-block-break", true);
+    this.restrictBlockPlace = getConfig().getBoolean("restrict-block-place", true);
+
     if (whitelistManager != null) {
       whitelistManager.reload();
     }
@@ -154,37 +168,21 @@ public class AuthWithQqPlugin extends JavaPlugin {
     }
   }
 
-  public BindingApi getBindingApi() {
-    return bindingApi;
-  }
+  public BindingApi getBindingApi() { return bindingApi; }
+  public BindingListener getBindingListener() { return bindingListener; }
+  public WhitelistManager getWhitelistManager() { return whitelistManager; }
+  public String getUnboundPromptMessage() { return unboundPromptMessage; }
+  public String getUnboundRestrictionMessage() { return unboundRestrictionMessage; }
+  public String getBindSuccessMessage() { return bindSuccessMessage; }
+  public boolean isDebugMode() { return isDebugMode; }
+  public Set<String> getPlayersToPoll() { return playersToPoll; }
 
-  public BindingListener getBindingListener() {
-    return bindingListener;
-  }
-
-  public WhitelistManager getWhitelistManager() {
-    return whitelistManager;
-  }
-
-  public String getUnboundPromptMessage() {
-    return unboundPromptMessage;
-  }
-
-  public String getUnboundRestrictionMessage() {
-    return unboundRestrictionMessage;
-  }
-
-  public String getBindSuccessMessage() {
-    return bindSuccessMessage;
-  }
-
-  public boolean isDebugMode() {
-    return isDebugMode;
-  }
-
-  public Set<String> getPlayersToPoll() {
-    return playersToPoll;
-  }
+  // 配置 Getter
+  public boolean isRestrictMovement() { return restrictMovement; }
+  public boolean isRestrictWorldChange() { return restrictWorldChange; }
+  public boolean isRestrictInteraction() { return restrictInteraction; }
+  public boolean isRestrictBlockBreak() { return restrictBlockBreak; }
+  public boolean isRestrictBlockPlace() { return restrictBlockPlace; }
 
   private void startPollingTask() {
     long delay = 20L * 5;
