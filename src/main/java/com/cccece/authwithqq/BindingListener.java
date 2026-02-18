@@ -29,11 +29,21 @@ public class BindingListener implements Listener {
   private final AuthWithQqPlugin plugin;
   private final Set<UUID> unverifiedPlayers;
 
+  /**
+   * 构造函数.
+   *
+   * @param plugin 插件实例
+   */
   public BindingListener(AuthWithQqPlugin plugin) {
     this.plugin = plugin;
     this.unverifiedPlayers = Collections.synchronizedSet(new HashSet<>());
   }
 
+  /**
+   * 监听玩家加入事件.
+   *
+   * @param event 加入事件
+   */
   @EventHandler(priority = EventPriority.LOWEST)
   public void onPlayerJoin(PlayerJoinEvent event) {
     Player player = event.getPlayer();
@@ -72,6 +82,11 @@ public class BindingListener implements Listener {
     });
   }
 
+  /**
+   * 监听玩家退出事件.
+   *
+   * @param event 退出事件
+   */
   @EventHandler
   public void onPlayerQuit(PlayerQuitEvent event) {
     UUID uuid = event.getPlayer().getUniqueId();
@@ -79,6 +94,11 @@ public class BindingListener implements Listener {
     plugin.getPlayersToPoll().remove(event.getPlayer().getName());
   }
 
+  /**
+   * 标记玩家为已验证.
+   *
+   * @param uuid 玩家 UUID
+   */
   public void markVerified(UUID uuid) {
     unverifiedPlayers.remove(uuid);
   }
@@ -89,18 +109,29 @@ public class BindingListener implements Listener {
     return unverifiedPlayers.contains(player.getUniqueId());
   }
 
+  /**
+   * 拦截未验证玩家的移动.
+   *
+   * @param event 移动事件
+   */
   @EventHandler
   public void onMove(PlayerMoveEvent event) {
     if (isUnverified(event.getPlayer())) {
       // 允许转头，但不允许移动坐标
-      if (event.getFrom().getX() != event.getTo().getX() 
+      if (event.getFrom().getX() != event.getTo().getX()
           || event.getFrom().getZ() != event.getTo().getZ()) {
         event.setTo(event.getFrom());
-        BindingApi.sendPlayerMessage(plugin, event.getPlayer(), plugin.getUnboundRestrictionMessage());
+        BindingApi.sendPlayerMessage(plugin, event.getPlayer(),
+            plugin.getUnboundRestrictionMessage());
       }
     }
   }
 
+  /**
+   * 拦截未验证玩家的交互.
+   *
+   * @param event 交互事件
+   */
   @EventHandler
   public void onInteract(PlayerInteractEvent event) {
     if (isUnverified(event.getPlayer())) {
@@ -108,6 +139,11 @@ public class BindingListener implements Listener {
     }
   }
 
+  /**
+   * 拦截未验证玩家的破坏.
+   *
+   * @param event 破坏事件
+   */
   @EventHandler
   public void onBreak(BlockBreakEvent event) {
     if (isUnverified(event.getPlayer())) {
@@ -115,6 +151,11 @@ public class BindingListener implements Listener {
     }
   }
 
+  /**
+   * 拦截未验证玩家的放置.
+   *
+   * @param event 放置事件
+   */
   @EventHandler
   public void onPlace(BlockPlaceEvent event) {
     if (isUnverified(event.getPlayer())) {
@@ -122,27 +163,44 @@ public class BindingListener implements Listener {
     }
   }
 
+  /**
+   * 拦截未验证玩家的聊天.
+   *
+   * @param event 聊天事件
+   */
   @EventHandler
   public void onChat(AsyncPlayerChatEvent event) {
     if (isUnverified(event.getPlayer())) {
       event.setCancelled(true);
-      BindingApi.sendPlayerMessage(plugin, event.getPlayer(), plugin.getUnboundRestrictionMessage());
+      BindingApi.sendPlayerMessage(plugin, event.getPlayer(),
+          plugin.getUnboundRestrictionMessage());
     }
   }
 
+  /**
+   * 拦截未验证玩家的指令.
+   *
+   * @param event 指令事件
+   */
   @EventHandler
   public void onCommand(PlayerCommandPreprocessEvent event) {
     if (isUnverified(event.getPlayer())) {
       String cmd = event.getMessage().toLowerCase();
       // 允许基本的登录/注册命令
-      if (cmd.startsWith("/login") || cmd.startsWith("/register") || cmd.startsWith("/l ")) {
+      if (cmd.startsWith("/login ") || cmd.startsWith("/register ") || cmd.startsWith("/l ")) {
         return;
       }
       event.setCancelled(true);
-      BindingApi.sendPlayerMessage(plugin, event.getPlayer(), plugin.getUnboundRestrictionMessage());
+      BindingApi.sendPlayerMessage(plugin, event.getPlayer(),
+          plugin.getUnboundRestrictionMessage());
     }
   }
 
+  /**
+   * 拦截未验证玩家的丢弃物品.
+   *
+   * @param event 丢弃事件
+   */
   @EventHandler
   public void onDrop(PlayerDropItemEvent event) {
     if (isUnverified(event.getPlayer())) {
@@ -150,6 +208,11 @@ public class BindingListener implements Listener {
     }
   }
 
+  /**
+   * 拦截未验证玩家的捡起物品.
+   *
+   * @param event 捡起事件
+   */
   @EventHandler
   public void onPickup(EntityPickupItemEvent event) {
     if (event.getEntity() instanceof Player) {
@@ -159,6 +222,11 @@ public class BindingListener implements Listener {
     }
   }
 
+  /**
+   * 拦截未验证玩家的伤害.
+   *
+   * @param event 伤害事件
+   */
   @EventHandler
   public void onDamage(EntityDamageByEntityEvent event) {
     if (event.getDamager() instanceof Player) {

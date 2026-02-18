@@ -5,7 +5,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -25,8 +24,8 @@ public class AuthWithQqPlugin extends JavaPlugin {
   private String unboundRestrictionMessage;
   private String bindSuccessMessage;
   private boolean isDebugMode;
-  private Set<String> playersToPoll; // 存储需要轮询的玩家名称 (MCID)
-  private int pollingTaskId = -1; // 存储定时任务 ID
+  private final Set<String> playersToPoll = Collections.synchronizedSet(new HashSet<>());
+  private volatile int pollingTaskId = -1; // 存储定时任务 ID
   private BindingListener bindingListener; // 监听器引用
   private WhitelistManager whitelistManager; // 白名单管理器
 
@@ -34,12 +33,11 @@ public class AuthWithQqPlugin extends JavaPlugin {
   public void onEnable() {
     PaperLib.suggestPaper(this);
     saveDefaultConfig();
-    
+
     // 初始化白名单管理器 (加载 whitelist.yml)
     this.whitelistManager = new WhitelistManager(this);
-    
+
     reloadConfigData();
-    this.playersToPoll = Collections.synchronizedSet(new HashSet<>());
 
     // 插件自检
     selfCheck();
@@ -53,7 +51,7 @@ public class AuthWithQqPlugin extends JavaPlugin {
 
     // 注册豁免指令
     if (getCommand("qqskip") != null) {
-        getCommand("qqskip").setExecutor(new SkipCommand());
+      getCommand("qqskip").setExecutor(new SkipCommand());
     }
   }
 
@@ -80,7 +78,7 @@ public class AuthWithQqPlugin extends JavaPlugin {
 
     // 异步执行 API 连接测试
     if (!defaultUrl && bindingApi != null) {
-      CompletableFuture.supplyAsync(() -> bindingApi.getApiStatusCode("__TEST__"))
+      bindingApi.getApiStatusCodeAsync("__TEST__")
           .thenAccept(statusCode -> {
             if (statusCode == 200) {
               getLogger().info("API connection successful! Status Code: 200 OK.");
@@ -97,26 +95,28 @@ public class AuthWithQqPlugin extends JavaPlugin {
   public void reloadConfigData() {
     reloadConfig();
     this.isDebugMode = getConfig().getBoolean("debug-mode", false);
-    
+
     String apiUrl = getConfig().getString("backend-api-url", "http://your.backend.com/");
     this.bindingApi = new BindingApi(this, apiUrl);
 
     this.unboundPromptMessage = getConfig().getString("message-unbound-prompt", "§c欢迎！...");
-    this.unboundRestrictionMessage = getConfig().getString("message-unbound-restriction", "§c请先完成 QQ 绑定！");
+    this.unboundRestrictionMessage = getConfig().getString(
+        "message-unbound-restriction", "§c请先完成 QQ 绑定！");
     this.bindSuccessMessage = getConfig().getString("message-bind-success", "§a账号绑定成功！");
-    
+
     if (whitelistManager != null) {
-        whitelistManager.reload();
+      whitelistManager.reload();
     }
   }
 
   /**
    * 豁免指令处理类.
-   * 支持 /qqskip add|remove <Name|UUID>
+   * 支持 /qqskip add 或 remove <Name 或 UUID>
    */
   private class SkipCommand implements CommandExecutor {
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd, @NotNull String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command cmd,
+                             @NotNull String label, String[] args) {
       if (args.length < 2) {
         sender.sendMessage("§c用法: /" + label + " <add|remove> <玩家名|UUID>");
         return true;
@@ -134,11 +134,11 @@ public class AuthWithQqPlugin extends JavaPlugin {
           whitelistManager.addName(target);
           sender.sendMessage("§a已将名称 " + target + " 添加到豁免名单。");
         }
-        
+
         // 如果玩家在线，立即解除限制
         Player onlinePlayer = Bukkit.getPlayerExact(target);
         if (onlinePlayer != null) {
-            handleBindingSuccess(onlinePlayer);
+          handleBindingSuccess(onlinePlayer);
         }
       } else if (action.equals("remove")) {
         try {
@@ -154,19 +154,43 @@ public class AuthWithQqPlugin extends JavaPlugin {
     }
   }
 
-  public BindingApi getBindingApi() { return bindingApi; }
-  public BindingListener getBindingListener() { return bindingListener; }
-  public WhitelistManager getWhitelistManager() { return whitelistManager; }
-  public String getUnboundPromptMessage() { return unboundPromptMessage; }
-  public String getUnboundRestrictionMessage() { return unboundRestrictionMessage; }
-  public String getBindSuccessMessage() { return bindSuccessMessage; }
-  public boolean isDebugMode() { return isDebugMode; }
-  public Set<String> getPlayersToPoll() { return playersToPoll; }
+  public BindingApi getBindingApi() {
+    return bindingApi;
+  }
+
+  public BindingListener getBindingListener() {
+    return bindingListener;
+  }
+
+  public WhitelistManager getWhitelistManager() {
+    return whitelistManager;
+  }
+
+  public String getUnboundPromptMessage() {
+    return unboundPromptMessage;
+  }
+
+  public String getUnboundRestrictionMessage() {
+    return unboundRestrictionMessage;
+  }
+
+  public String getBindSuccessMessage() {
+    return bindSuccessMessage;
+  }
+
+  public boolean isDebugMode() {
+    return isDebugMode;
+  }
+
+  public Set<String> getPlayersToPoll() {
+    return playersToPoll;
+  }
 
   private void startPollingTask() {
     long delay = 20L * 5;
     long period = 20L * 10;
-    pollingTaskId = Bukkit.getScheduler().runTaskTimer(this, this::pollBindingStatus, delay, period).getTaskId();
+    pollingTaskId = Bukkit.getScheduler().runTaskTimer(
+        this, this::pollBindingStatus, delay, period).getTaskId();
   }
 
   private void pollBindingStatus() {
@@ -185,6 +209,11 @@ public class AuthWithQqPlugin extends JavaPlugin {
     }
   }
 
+  /**
+   * 处理绑定成功后的逻辑.
+   *
+   * @param player 在线玩家对象
+   */
   public void handleBindingSuccess(Player player) {
     String playerName = player.getName();
     playersToPoll.remove(playerName);
