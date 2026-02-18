@@ -28,7 +28,7 @@ jobs:
       contents: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Common Setup
         uses: ./.github/actions/common-setup
@@ -37,6 +37,7 @@ jobs:
 
       - name: Build with Gradle
         run: ./gradlew build --info
+        shell: bash
 
       - name: Upload build results
         uses: actions/upload-artifact@v4
@@ -59,7 +60,7 @@ jobs:
       - test
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Common Setup
         uses: ./.github/actions/common-setup
@@ -84,7 +85,7 @@ jobs:
     if: always() && vars.DISCORD_WEBHOOK_ID
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Common Setup
         uses: ./.github/actions/common-setup

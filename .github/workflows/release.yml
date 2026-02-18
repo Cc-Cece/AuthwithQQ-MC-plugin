@@ -26,10 +26,6 @@ jobs:
         with:
           java-version: '21'
 
-      # 3. 授予 gradlew 执行权限
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-
       # 4. 执行构建任务
       # 建议确认 build.gradle 是否有 shadowJar 任务，如果有可改为 ./gradlew shadowJar
       - name: Build with Gradle
