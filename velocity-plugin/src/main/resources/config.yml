@@ -1,0 +1,16 @@
+# AuthWithQQ - Velocity 代理端插件配置文件
+
+# 外部 API 的基础地址 (必须以 http:// 或 https:// 开头)
+# 插件会自动拼接路径：{url}/api/getBindingStatus?mcid={playerName}
+backend-api-url: "http://your.api.com/"
+
+# 调试模式：开启后将在控制台打印详细的 API 请求信息
+debug-mode: "false"
+
+# --- 消息配置 ---
+
+# 玩家未绑定时被踢出的消息，{bindingCode} 将被替换为实际绑定码
+message-unbound: "§c您尚未绑定 QQ 账号，无法进入服务器！\n§e您的绑定码为：§a{bindingCode}\n§e请将此绑定码发送给 QQ 机器人以完成绑定，完成后重新连接。"
+
+# 当绑定码不可用时的踢出消息
+message-unbound-no-code: "§c您尚未绑定 QQ 账号，无法进入服务器！\n§e请联系管理员或向 QQ 机器人发送命令获取绑定码，完成绑定后重新连接。"

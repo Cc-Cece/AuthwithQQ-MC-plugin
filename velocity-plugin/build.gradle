@@ -1,0 +1,87 @@
+import com.github.spotbugs.snom.SpotBugsTask
+
+plugins {
+    id 'checkstyle'
+    id "com.github.spotbugs" version "6.4.2"
+    id 'com.gradleup.shadow' version '9.2.2'
+    id 'java'
+}
+
+group = "com.cccece.authwithqq"
+version = rootProject.version
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+repositories {
+    maven {
+        name = 'papermc'
+        url = 'https://repo.papermc.io/repository/maven-public/'
+        content {
+            includeGroup("com.velocitypowered")
+            includeGroup("net.kyori")
+        }
+    }
+
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly 'com.velocitypowered:velocity-api:3.3.0-SNAPSHOT'
+    compileOnly 'com.github.spotbugs:spotbugs-annotations:4.9.6'
+    spotbugsPlugins 'com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0'
+    testCompileOnly 'com.github.spotbugs:spotbugs-annotations:4.9.6'
+    testImplementation 'org.junit.jupiter:junit-jupiter:6.0.0'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:6.0.0'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+processResources {
+    filesMatching("**/velocity-plugin.json") {
+        expand(VERSION: version)
+    }
+}
+
+checkstyle {
+    toolVersion = '12.0.1'
+    configFile = rootProject.file('config/checkstyle/checkstyle.xml')
+    maxWarnings = 0
+}
+
+configurations.checkstyle {
+    resolutionStrategy.capabilitiesResolution.withCapability("com.google.collections:google-collections") {
+        select("com.google.guava:guava:23.0")
+    }
+}
+
+tasks.withType(Checkstyle).configureEach {
+    reports {
+        xml.required = false
+        html.required = true
+    }
+}
+
+tasks.withType(SpotBugsTask).configureEach {
+    ignoreFailures = true
+    reports.create("html") {
+        required = true
+    }
+    reports.create("xml") {
+        required = false
+    }
+}
+
+shadowJar {
+    archiveBaseName.set('AuthwithQQ-Velocity')
+    archiveClassifier.set('')
+    minimize()
+}
+
+// Disable jar and replace with shadowJar
+jar.enabled = false
+assemble.dependsOn(shadowJar)

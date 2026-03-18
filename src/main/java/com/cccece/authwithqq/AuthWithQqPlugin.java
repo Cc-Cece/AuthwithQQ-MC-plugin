@@ -16,6 +16,11 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * QQ 绑定游客模式插件的主类.
+ * 支持两种运行模式：
+ * <ul>
+ *   <li>standalone（单服模式）：插件独立处理所有 QQ 绑定验证与行为限制。</li>
+ *   <li>backend（群组服后端模式）：由 Velocity 代理端插件完成验证，本插件仅保留白名单管理功能。</li>
+ * </ul>
  * 已集成白名单豁免功能，支持通过指令 /qqskip 或 /qqwhitelist 永久豁免玩家.
  */
 public class AuthWithQqPlugin extends JavaPlugin {
@@ -29,6 +34,7 @@ public class AuthWithQqPlugin extends JavaPlugin {
   private volatile int pollingTaskId = -1; // 存储定时任务 ID
   private BindingListener bindingListener; // 监听器引用
   private WhitelistManager whitelistManager; // 白名单管理器
+  private volatile boolean backendMode; // 是否为群组服后端模式
 
   // 行为限制配置
   private volatile boolean restrictMovement;
@@ -47,17 +53,22 @@ public class AuthWithQqPlugin extends JavaPlugin {
 
     reloadConfigData();
 
-    // 插件自检
-    selfCheck();
+    if (backendMode) {
+      // 群组服后端模式：本插件不注册监听器，也不启动轮询，由 Velocity 代理端负责验证
+      getLogger().info("====================================================");
+      getLogger().info("  AuthWithQQ 正在以【后端模式 (backend)】运行。");
+      getLogger().info("  玩家验证由 Velocity 代理端插件负责，本插件不限制玩家行为。");
+      getLogger().info("  请确保后端服务器仅可通过 Velocity 代理访问！");
+      getLogger().info("====================================================");
+    } else {
+      // 单服模式：完整的验证与限制流程
+      selfCheck();
+      startPollingTask();
+      this.bindingListener = new BindingListener(this);
+      getServer().getPluginManager().registerEvents(bindingListener, this);
+    }
 
-    // 启动定时轮询任务
-    startPollingTask();
-
-    // 注册事件监听器
-    this.bindingListener = new BindingListener(this);
-    getServer().getPluginManager().registerEvents(bindingListener, this);
-
-    // 注册豁免指令
+    // 注册豁免指令（两种模式均支持）
     if (getCommand("qqskip") != null) {
       getCommand("qqskip").setExecutor(new SkipCommand());
     }
@@ -103,6 +114,8 @@ public class AuthWithQqPlugin extends JavaPlugin {
   public void reloadConfigData() {
     reloadConfig();
     this.isDebugMode = getConfig().getBoolean("debug-mode", false);
+    this.backendMode = "backend".equalsIgnoreCase(
+        getConfig().getString("plugin-mode", "standalone"));
 
     String apiUrl = getConfig().getString("backend-api-url", "http://your.backend.com/");
     this.bindingApi = new BindingApi(this, apiUrl);
@@ -196,6 +209,10 @@ public class AuthWithQqPlugin extends JavaPlugin {
 
   public boolean isDebugMode() {
     return isDebugMode;
+  }
+
+  public boolean isBackendMode() {
+    return backendMode;
   }
 
   @SuppressFBWarnings("EI_EXPOSE_REP")
