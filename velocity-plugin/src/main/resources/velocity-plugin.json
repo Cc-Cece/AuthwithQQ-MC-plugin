@@ -1,0 +1,11 @@
+{
+  "id": "authwithqq-velocity",
+  "name": "AuthwithQQ-Velocity",
+  "version": "${VERSION}",
+  "description": "QQ binding authentication plugin for Velocity proxy",
+  "authors": [
+    "Mizuki"
+  ],
+  "main": "com.cccece.authwithqq.velocity.AuthWithQqVelocityPlugin",
+  "dependencies": []
+}

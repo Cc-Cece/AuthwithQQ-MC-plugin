@@ -1,5 +1,12 @@
 # AuthWithQQ - 插件配置文件
 
+# --- 运行模式 ---
+# standalone : 单服模式（默认）。插件独立完成所有 QQ 绑定验证与行为限制。
+# backend    : 群组服后端模式。由 Velocity 代理端插件完成验证，本插件不再对玩家施加任何限制。
+#              使用 backend 模式时，请确保后端服务器仅可通过 Velocity 代理访问，
+#              以防止玩家绕过代理直接连接。
+plugin-mode: "standalone"
+
 # 外部 API 的基础地址 (必须以 http:// 或 https:// 开头)
 # 插件会自动拼接路径：{url}/api/getBindingStatus?mcid={playerName}
 backend-api-url: "http://your.api.com/"
